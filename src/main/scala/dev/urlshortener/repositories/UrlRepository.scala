@@ -14,17 +14,21 @@ class UrlRepository(config: AppConfig) {
   ): (String, String, Instant) = (
     item.get("code").s(),
     item.get("url").s(),
-    Instant.parse(item.get("expires_at").s())
+    Instant.ofEpochSecond(item.get("expires_at").n().toLong)
   )
+  
   def save(code: String, url: String, expiresAt: Instant): IO[Unit] = IO {
     val item = Map(
       "code" -> AttributeValue.builder().s(code).build(),
       "url" -> AttributeValue.builder().s(url).build(),
-      "expires_at" -> AttributeValue.builder().s(expiresAt.toString).build()
+      "expires_at" -> AttributeValue
+        .builder()
+        .n(expiresAt.getEpochSecond.toString)
+        .build()
     )
-    val req =
+    val request =
       PutItemRequest.builder().tableName(table).item(item.asJava).build()
-    DynamoConfig.client.putItem(req)
+    DynamoConfig.client.putItem(request)
   }
 
   def find(code: String): IO[Option[String]] = IO {
@@ -34,7 +38,7 @@ class UrlRepository(config: AppConfig) {
 
     if (result.hasItem) {
       val item = result.item()
-      val expires = Instant.parse(item.get("expires_at").s())
+      val expires = Instant.ofEpochSecond(item.get("expires_at").n().toLong)
       if (expires.isAfter(Instant.now())) Some(item.get("url").s())
       else None
     } else None
