@@ -1,4 +1,4 @@
-package dev.urlshortener.domain.model
+package dev.urlshortener.domain.models
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
