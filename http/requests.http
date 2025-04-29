@@ -1,0 +1,14 @@
+@baseUrl = http://localhost:8080
+
+### Shorten a URL
+POST {{baseUrl}}/shorten
+Content-Type: application/json
+Accept: application/json
+
+{
+  "url": "https://www.google.com/test1"
+}
+
+### Resolve a short url
+GET {{baseUrl}}/diSiJfEe
+Accept: application/json
