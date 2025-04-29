@@ -1,14 +1,14 @@
 package dev.urlshortener.repositories
 
 import cats.effect.IO
-import dev.urlshortener.config.DynamoConfig
+import dev.urlshortener.config.{AppConfig, DynamoConfig}
 import software.amazon.awssdk.services.dynamodb.model._
 import java.time.Instant
 import scala.jdk.CollectionConverters._
-import dev.urlshortener.config.AppConfig
 
 class UrlRepository(config: AppConfig) {
   private val table = config.tableName
+
   private def toRecord(
       item: java.util.Map[String, AttributeValue]
   ): (String, String, Instant) = (
@@ -16,33 +16,40 @@ class UrlRepository(config: AppConfig) {
     item.get("url").s(),
     Instant.ofEpochSecond(item.get("expires_at").n().toLong)
   )
-  
-  def save(code: String, url: String, expiresAt: Instant): IO[Unit] = IO {
-    val item = Map(
-      "code" -> AttributeValue.builder().s(code).build(),
-      "url" -> AttributeValue.builder().s(url).build(),
-      "expires_at" -> AttributeValue
+
+  def save(code: String, url: String, expiresAt: Instant): IO[Unit] =
+    IO.blocking {
+      val item = Map(
+        "code" -> AttributeValue.builder().s(code).build(),
+        "url" -> AttributeValue.builder().s(url).build(),
+        "expires_at" -> AttributeValue
+          .builder()
+          .n(expiresAt.getEpochSecond.toString)
+          .build()
+      )
+
+      val request = PutItemRequest
         .builder()
-        .n(expiresAt.getEpochSecond.toString)
+        .tableName(table)
+        .item(item.asJava)
         .build()
-    )
-    val request =
-      PutItemRequest.builder().tableName(table).item(item.asJava).build()
-    DynamoConfig.client.putItem(request)
-  }
 
-  def find(code: String): IO[Option[String]] = IO {
-    val key = Map("code" -> AttributeValue.builder().s(code).build())
-    val req = GetItemRequest.builder().tableName(table).key(key.asJava).build()
-    val result = DynamoConfig.client.getItem(req)
+      DynamoConfig.client.putItem(request)
+    }
 
-    if (result.hasItem) {
-      val item = result.item()
-      val expires = Instant.ofEpochSecond(item.get("expires_at").n().toLong)
-      if (expires.isAfter(Instant.now())) Some(item.get("url").s())
-      else None
-    } else None
-  }
+  def find(code: String): IO[Option[String]] =
+    IO.blocking {
+      val key = Map("code" -> AttributeValue.builder().s(code).build()).asJava
+      val req = GetItemRequest.builder().tableName(table).key(key).build()
+      val result = DynamoConfig.client.getItem(req)
+
+      if (result.hasItem) {
+        val item = result.item()
+        val expires = Instant.ofEpochSecond(item.get("expires_at").n().toLong)
+        if (expires.isAfter(Instant.now())) Some(item.get("url").s())
+        else None
+      } else None
+    }
 
   def findByOriginalUrl(
       originalUrl: String
@@ -52,9 +59,7 @@ class UrlRepository(config: AppConfig) {
         .builder()
         .tableName(table)
         .filterExpression("#u = :u")
-        .expressionAttributeNames(
-          Map("#u" -> "url").asJava
-        )
+        .expressionAttributeNames(Map("#u" -> "url").asJava)
         .expressionAttributeValues(
           Map(":u" -> AttributeValue.builder().s(originalUrl).build()).asJava
         )
