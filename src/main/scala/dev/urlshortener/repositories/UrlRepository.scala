@@ -1,0 +1,70 @@
+package dev.urlshortener.repositories
+
+import cats.effect.IO
+import dev.urlshortener.config.{AppConfig, DynamoConfig}
+import software.amazon.awssdk.services.dynamodb.model._
+import java.time.Instant
+import scala.jdk.CollectionConverters._
+
+class UrlRepository(config: AppConfig) {
+  private val table = config.tableName
+
+  private def toRecord(
+      item: java.util.Map[String, AttributeValue]
+  ): (String, String, Instant) = (
+    item.get("code").s(),
+    item.get("url").s(),
+    Instant.ofEpochSecond(item.get("expires_at").n().toLong)
+  )
+
+  def save(code: String, url: String, expiresAt: Instant): IO[Unit] =
+    IO.blocking {
+      val item = Map(
+        "code" -> AttributeValue.builder().s(code).build(),
+        "url" -> AttributeValue.builder().s(url).build(),
+        "expires_at" -> AttributeValue
+          .builder()
+          .n(expiresAt.getEpochSecond.toString)
+          .build()
+      )
+
+      val request = PutItemRequest
+        .builder()
+        .tableName(table)
+        .item(item.asJava)
+        .build()
+
+      DynamoConfig.client.putItem(request)
+    }
+
+  def find(code: String): IO[Option[String]] =
+    IO.blocking {
+      val key = Map("code" -> AttributeValue.builder().s(code).build()).asJava
+      val req = GetItemRequest.builder().tableName(table).key(key).build()
+      val result = DynamoConfig.client.getItem(req)
+
+      if (result.hasItem) {
+        val item = result.item()
+        val expires = Instant.ofEpochSecond(item.get("expires_at").n().toLong)
+        if (expires.isAfter(Instant.now())) Some(item.get("url").s())
+        else None
+      } else None
+    }
+
+  def findByOriginalUrl(
+      originalUrl: String
+  ): IO[Option[(String, String, Instant)]] =
+    IO.blocking {
+      val scan = ScanRequest
+        .builder()
+        .tableName(table)
+        .filterExpression("#u = :u")
+        .expressionAttributeNames(Map("#u" -> "url").asJava)
+        .expressionAttributeValues(
+          Map(":u" -> AttributeValue.builder().s(originalUrl).build()).asJava
+        )
+        .build()
+
+      DynamoConfig.client.scan(scan).items().asScala.headOption.map(toRecord)
+    }
+}
