@@ -20,19 +20,18 @@ class UrlShortenerServiceSpec
     with Matchers
     with MockitoSugar {
 
-  val testConfig = AppConfig.load();
+  val testConfig = AppConfig.load()
 
   "UrlShortenerService" should "generate a new short URL if not already present" in {
     val mockRepo = mock[UrlRepository]
     val originalUrl = "https://www.google.com"
-    val code = "code123"
     val expiresAt =
       Instant.now().plusSeconds(testConfig.defaultExpiryDays * 86400)
-    when(mockRepo.findByOriginalUrl(originalUrl))
-      .thenReturn(IO.pure(None))
+    when(mockRepo.findByOriginalUrl(originalUrl)).thenReturn(IO.pure(None))
     when(mockRepo.find(any[String])).thenReturn(IO.pure(None))
     when(mockRepo.save(any[String], any[String], any[Instant]))
       .thenReturn(IO.unit)
+
     val service = new UrlShortenerService(mockRepo, testConfig)
     val result = service.shorten(originalUrl).unsafeRunSync()
     result.originalUrl shouldEqual originalUrl
@@ -70,5 +69,40 @@ class UrlShortenerServiceSpec
     val service = new UrlShortenerService(mockRepo, testConfig)
     val result = service.resolve(code).unsafeRunSync()
     result shouldEqual Some(originalUrl)
+  }
+
+  it should "reject empty URL" in {
+    val mockRepo = mock[UrlRepository]
+    val service = new UrlShortenerService(mockRepo, testConfig)
+    an[IllegalArgumentException] should be thrownBy {
+      service.shorten("").unsafeRunSync()
+    }
+  }
+
+  it should "reject invalid URL format" in {
+    val mockRepo = mock[UrlRepository]
+    val service = new UrlShortenerService(mockRepo, testConfig)
+    an[IllegalArgumentException] should be thrownBy {
+      service.shorten("not-a-url").unsafeRunSync()
+    }
+  }
+
+  it should "retry on code collision and generate a unique short code" in {
+    val mockRepo = mock[UrlRepository]
+    val originalUrl = "https://example.com"
+    val existingCode = "abc123"
+    val newCode = "xyz456"
+    when(mockRepo.findByOriginalUrl(originalUrl))
+      .thenReturn(IO.pure(None))
+    when(mockRepo.find(existingCode))
+      .thenReturn(IO.pure(Some("https://another.com")))
+    when(mockRepo.find(newCode)).thenReturn(IO.pure(None))
+    when(mockRepo.save(any[String], any[String], any[Instant]))
+      .thenReturn(IO.unit)
+    val codeAttempts = Iterator(existingCode, newCode)
+    val service =
+      new UrlShortenerService(mockRepo, testConfig, () => codeAttempts.next())
+    val result = service.shorten(originalUrl).unsafeRunSync()
+    result.code shouldEqual newCode
   }
 }
