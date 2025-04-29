@@ -1,7 +1,7 @@
 package dev.urlshortener.services
 
 import cats.effect.IO
-import dev.urlshortener.domain.model.Url
+import dev.urlshortener.domain.models.Url
 import dev.urlshortener.utils.CodeGenerator
 import dev.urlshortener.repositories.UrlRepository
 

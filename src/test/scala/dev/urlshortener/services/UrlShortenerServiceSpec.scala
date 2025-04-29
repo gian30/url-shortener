@@ -7,7 +7,7 @@ import org.mockito.ArgumentMatchers._
 import org.scalatestplus.mockito.MockitoSugar
 
 import dev.urlshortener.repositories.UrlRepository
-import dev.urlshortener.domain.model.Url
+import dev.urlshortener.domain.models.Url
 import dev.urlshortener.config.AppConfig
 
 import cats.effect.IO
