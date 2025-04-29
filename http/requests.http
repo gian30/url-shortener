@@ -6,9 +6,9 @@ Content-Type: application/json
 Accept: application/json
 
 {
-  "url": "https://www.google.com/test1"
+  "url": "https://www.google.com"
 }
 
 ### Resolve a short url
-GET {{baseUrl}}/diSiJfEe
+GET {{baseUrl}}/wBaONOUv
 Accept: application/json
