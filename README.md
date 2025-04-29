@@ -28,6 +28,10 @@ sbt compile
 sbt run
 ```
 
+## Test endpoints
+- You can find a requests.http file inside the http folder, which allows you to test endpoints locally using the [REST Client extension](https://marketplace.visualstudio.com/items?itemName=humao.rest-client "REST Client extension") in VS Code.
+- Just open the file and click "Send Request" above each block to test endpoints directly from VS Code.
+
 ## Future steps
 - Allow users to specify expiry duration per URL
 - Enable DynamoDB's automatic deletion of expired records by:
