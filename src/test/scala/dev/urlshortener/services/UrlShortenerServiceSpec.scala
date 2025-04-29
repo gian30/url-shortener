@@ -26,9 +26,11 @@ class UrlShortenerServiceSpec
     val mockRepo = mock[UrlRepository]
     val originalUrl = "https://www.google.com"
     val code = "code123"
-    val expiresAt = Instant.now().plusSeconds(testConfig.defaultExpiryDays * 86400)
+    val expiresAt =
+      Instant.now().plusSeconds(testConfig.defaultExpiryDays * 86400)
     when(mockRepo.findByOriginalUrl(originalUrl))
       .thenReturn(IO.pure(None))
+    when(mockRepo.find(any[String])).thenReturn(IO.pure(None))
     when(mockRepo.save(any[String], any[String], any[Instant]))
       .thenReturn(IO.unit)
     val service = new UrlShortenerService(mockRepo, testConfig)
