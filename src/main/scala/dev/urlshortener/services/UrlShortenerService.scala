@@ -10,8 +10,8 @@ import java.time.temporal.ChronoUnit
 import dev.urlshortener.config.AppConfig
 
 class UrlShortenerService(
-  repository: UrlRepository,
-  config: AppConfig
+    repository: UrlRepository,
+    config: AppConfig
 ) {
 
   private val defaultExpiryDays = config.defaultExpiryDays
@@ -21,13 +21,35 @@ class UrlShortenerService(
     repository.findByOriginalUrl(originalUrl).flatMap {
       case Some((code, url, expiresAt)) =>
         IO.pure(Url(code, url, s"$baseUrl$code", expiresAt))
+
       case None =>
-        val code = CodeGenerator.generate(8)
-        val expiresAt = Instant.now().plus(defaultExpiryDays, ChronoUnit.DAYS)
-        val url = Url(code, originalUrl, s"$baseUrl$code", expiresAt)
-        repository.save(url.code, url.originalUrl, url.expiresAt).map(_ => url)
+        for {
+          code <- generateUniqueCode()
+          expiresAt = Instant.now().plus(defaultExpiryDays, ChronoUnit.DAYS)
+          shortUrl = s"$baseUrl$code"
+          url = Url(code, originalUrl, shortUrl, expiresAt)
+          _ <- repository.save(url.code, url.originalUrl, url.expiresAt)
+        } yield url
     }
 
   def resolve(code: String): IO[Option[String]] =
     repository.find(code)
+
+  private def generateUniqueCode(retries: Int = 5): IO[String] = {
+    def tryGenerate(attempt: Int): IO[String] = {
+      val code = CodeGenerator.generate(8)
+      repository.find(code).flatMap {
+        case Some(_) if attempt < retries =>
+          tryGenerate(attempt + 1)
+        case Some(_) =>
+          IO.raiseError(
+            new RuntimeException("Too many collisions, please retry")
+          )
+        case None =>
+          IO.pure(code)
+      }
+    }
+    tryGenerate(0)
+  }
+
 }

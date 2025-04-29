@@ -10,6 +10,7 @@ import org.http4s.headers.Location
 
 import dev.urlshortener.api.dtos.{UrlRequest, UrlResponse}
 import dev.urlshortener.services.UrlShortenerService
+import dev.urlshortener.utils.HttpUtils.permanentRedirectWithCache
 
 object UrlController {
 
@@ -30,7 +31,7 @@ object UrlController {
         service.resolve(code).flatMap {
           case Some(originalUrl) =>
             Uri.fromString(originalUrl) match {
-              case Right(uri) => PermanentRedirect(Location(uri))
+              case Right(uri) => permanentRedirectWithCache(uri)
               case Left(_)    => BadRequest("Invalid redirect URI")
             }
           case None =>
