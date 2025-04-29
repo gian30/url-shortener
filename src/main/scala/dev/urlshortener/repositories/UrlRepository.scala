@@ -32,6 +32,7 @@ class UrlRepository(config: AppConfig) {
         .builder()
         .tableName(table)
         .item(item.asJava)
+        .conditionExpression("attribute_not_exists(code)")
         .build()
 
       DynamoConfig.client.putItem(request)
@@ -67,4 +68,12 @@ class UrlRepository(config: AppConfig) {
 
       DynamoConfig.client.scan(scan).items().asScala.headOption.map(toRecord)
     }
+
+  def delete(code: String): IO[Unit] = IO.blocking {
+    val key = Map("code" -> AttributeValue.builder().s(code).build())
+    val req =
+      DeleteItemRequest.builder().tableName(table).key(key.asJava).build()
+    DynamoConfig.client.deleteItem(req)
+  }
+
 }
