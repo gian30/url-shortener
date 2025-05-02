@@ -38,3 +38,4 @@ sbt run
 	- In AWS Console, go to DynamoDB > Tables > short_links
 	- Under Time to Live, enable TTL
 	- Set the attribute name to expires_at
+ - Either add an index on original_url for better findByOriginalUrl performance, or allow duplicates so no checks by original_url are needed.
