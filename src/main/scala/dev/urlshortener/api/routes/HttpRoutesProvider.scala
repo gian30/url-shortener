@@ -1,4 +1,3 @@
-// src/main/scala/dev/urlshortener/api/routes/HttpRoutesProvider.scala
 package dev.urlshortener.api.routes
 
 import cats.effect.IO
